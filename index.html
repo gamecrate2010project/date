@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>群雄データ編集</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 手際のよい編集道具。賑やかさは勢力色だけに任せる
+   IDEA: 楽屋に貼られた出演者名簿。勢力ごとのペンライト色のリボンで束ねる
+   PICTURE: 名簿そのもの（能力バー付きの行）と、開くと横から出る編集カード
+   COLOUR and TYPE: 白地＋深い藍、アクセントはμ'sピンク。見出しZen Maru Gothic、本文はシステムゴシック
+   LAYOUT: 帯ヘッダー→勢力チップ→名簿。600px未満は行がカードに組み替わり、編集は下からのシート */
+:root{color-scheme:light dark;--bg:light-dark(#fff,#15131d);--ink:light-dark(#1d1a2e,#f0edf7);--mute:light-dark(#6c6880,#a19cb5);--line:light-dark(#e7e4ee,#2c2938);--soft:light-dark(#f5f3f9,#1d1a28);--hd:light-dark(#2b2350,#211b3d);--ac:#e4007f;--warn:light-dark(#b45309,#f6b35b)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Hiragino Sans","Noto Sans JP","Yu Gothic",system-ui,sans-serif;overflow-x:clip}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+header{background:var(--hd);color:#fff;padding:20px max(4vw,16px) 0}
+.top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;max-width:1320px;margin:auto}
+h1{font:700 clamp(26px,4vw,36px)/1.05 "Zen Maru Gothic",sans-serif;margin:0}
+h1 small{display:block;font:500 14px/1.4 inherit;opacity:.75;margin-top:6px}
+.acts{display:flex;flex-wrap:wrap;gap:8px}
+.btn{min-height:44px;padding:0 16px;border-radius:22px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);color:#fff;font-weight:600}
+.btn:hover{background:rgba(255,255,255,.18)}.btn:disabled{opacity:.4;cursor:default}
+.btn.pri{background:var(--ac);border-color:var(--ac)}
+.ribbon{display:flex;height:8px;margin:18px calc(-1*max(4vw,16px)) 0}.ribbon i{flex:1}
+.wrap{max-width:1320px;margin:auto;padding:16px max(4vw,16px) 60px}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.tools input[type=search]{flex:1 1 240px;height:44px;border:1px solid var(--line);border-radius:22px;padding:0 18px;background:var(--soft);font-size:16px}
+.sort{display:flex;gap:6px;flex:0 1 auto}
+.sort select{height:44px;border:1px solid var(--line);border-radius:22px;padding:0 14px;background:var(--soft);font-size:16px}
+.sort button{height:44px;min-width:92px;border-radius:22px;border:1px solid var(--line);background:var(--bg);font-weight:700;white-space:nowrap}
+.sort button:disabled{opacity:.4}
+@media(max-width:600px){.sort{flex:1 1 100%}.sort select{flex:1}}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:thin}
+.chip{flex:none;min-height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--line);background:var(--bg);display:flex;gap:8px;align-items:center;font-size:14px;white-space:nowrap}
+.chip b{font-weight:700}.chip span{color:var(--mute)}
+.chip[aria-pressed=true]{border-color:var(--c,var(--ink));box-shadow:inset 0 0 0 1px var(--c,var(--ink));background:color-mix(in srgb,var(--c,var(--ink)) 10%,var(--bg))}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+.sum{font-size:14px;color:var(--mute);margin:0 0 10px}.sum b{color:var(--ink)}
+.list{border-top:2px solid var(--ink)}
+.row{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr) minmax(0,1.3fr) 44px repeat(4,minmax(0,.8fr)) minmax(0,.7fr) minmax(0,.8fr) minmax(0,.9fr) 70px;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);font-size:14px}
+.row.h{position:sticky;top:0;background:var(--bg);z-index:2;font-size:13px;color:var(--mute);padding-block:4px}
+.row.h button{border:0;background:none;padding:8px 0;text-align:left;color:inherit;font-weight:600;min-height:36px}
+.row.h button.on{color:var(--ink)}
+.row.d{cursor:pointer;border-left:4px solid var(--c)}
+.row.d:hover{background:var(--soft)}.row.d.sel{background:color-mix(in srgb,var(--ac) 9%,var(--bg))}
+.nm{font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm em{font-style:normal;color:var(--warn);margin-left:4px}
+.tx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mute)}
+.tk{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--soft);font-weight:700}
+.st{display:grid;gap:3px}.st .n{font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
+.st i{display:block;height:4px;border-radius:2px;background:var(--line);overflow:hidden}.st i u{display:block;height:100%;background:var(--mute)}
+.st.hi .n{color:var(--ac)}.st.hi i u{background:var(--ac)}
+.gr{letter-spacing:1px;color:var(--ac);white-space:nowrap;font-size:12px}
+.meta{display:none}
+.empty{padding:40px;text-align:center;color:var(--mute)}
+/* 編集パネル */
+.pane{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:var(--bg);border-left:1px solid var(--line);box-shadow:-12px 0 40px rgba(0,0,0,.15);transform:translateX(105%);transition:transform .22s ease;z-index:20;display:flex;flex-direction:column}
+.pane.open{transform:none}
+.ph{padding:16px 18px;border-bottom:4px solid var(--c,var(--ac));display:flex;gap:10px;align-items:center}
+.ph h2{font:700 22px/1.1 "Zen Maru Gothic",sans-serif;margin:0;flex:1;overflow-wrap:anywhere}
+.x{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--bg);font-size:20px}
+.pb{overflow-y:auto;padding:16px 18px 24px;flex:1}
+.f{display:grid;gap:4px;margin-bottom:14px}.f>span{font-size:13px;color:var(--mute);font-weight:600}
+.f input:not([type=range]),.f select{height:44px;border:1px solid var(--line);border-radius:10px;padding:0 12px;background:var(--soft);font-size:16px;width:100%}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:flex;gap:6px}.seg button{flex:1;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--soft);font-weight:700}
+.seg button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.sl{display:grid;grid-template-columns:2.2em 1fr 64px;gap:10px;align-items:center;margin-bottom:8px}
+.sl b{font-size:15px}.sl input[type=range]{width:100%;accent-color:var(--ac);height:32px}
+.sl input[type=number]{height:40px;border:1px solid var(--line);border-radius:8px;background:var(--soft);text-align:right;padding:0 8px;font-size:16px;width:100%}
+.tot{font-size:13px;color:var(--mute);text-align:right;margin:-2px 0 14px}
+.hint{font-size:13px;color:var(--warn);background:color-mix(in srgb,var(--warn) 10%,var(--bg));border-radius:10px;padding:8px 12px;margin-bottom:12px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+.hint button{border:1px solid currentColor;background:none;border-radius:16px;padding:4px 12px;color:inherit;min-height:32px}
+.pf{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--line)}
+.pf button{flex:1;min-height:44px;border-radius:22px;border:1px solid var(--line);background:var(--soft);font-weight:600}
+.pf .del{color:#d0204f}
+/* モーダル */
+.mod{position:fixed;inset:0;background:rgba(10,8,20,.5);display:none;place-items:center;z-index:30;padding:16px}
+.mod.open{display:grid}
+.box{background:var(--bg);border-radius:18px;width:min(720px,100%);max-height:90vh;display:flex;flex-direction:column;padding:20px;gap:12px}
+.box h3{font:700 20px/1.2 "Zen Maru Gothic",sans-serif;margin:0}
+.box p{margin:0;font-size:14px;color:var(--mute)}
+.box textarea{width:100%;min-height:240px;flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;font:13px/1.5 ui-monospace,Menlo,monospace;background:var(--soft);white-space:pre;overflow:auto}
+.box .bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.box .bar button,.box label.file{min-height:44px;padding:0 18px;border-radius:22px;border:1px solid var(--line);background:var(--soft);font-weight:600;display:inline-flex;align-items:center}
+.box .bar .pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.tabs{display:flex;gap:6px}.tabs button{min-height:40px;padding:0 16px;border-radius:20px;border:1px solid var(--line);background:var(--bg)}
+.tabs button.on{background:var(--ink);color:var(--bg)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:var(--bg);padding:10px 12px 10px 18px;border-radius:24px;display:flex;gap:12px;align-items:center;transition:transform .2s;z-index:40;font-size:14px;max-width:92vw}
+.toast.on{transform:translateX(-50%)}
+.toast button{border:0;background:var(--ac);color:#fff;border-radius:16px;padding:6px 14px;min-height:32px}
+@media(max-width:900px){.row{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 40px repeat(4,minmax(0,.8fr)) minmax(0,.7fr) 64px}.c-fac,.c-ai{display:none}}
+@media(max-width:600px){
+ .row.h{display:none}
+ .row.d{grid-template-columns:repeat(5,minmax(0,1fr));grid-template-areas:"nm nm nm tk gr" "bu ch mi se ys" "mt mt mt mt mt";gap:6px 10px;padding:10px 12px}
+ .c-unit,.c-sk,.c-fac,.c-ai{display:none}
+ .c-nm{grid-area:nm}.c-tk{grid-area:tk;justify-self:end}.c-gr{grid-area:gr;justify-self:end}
+ .c-bu{grid-area:bu}.c-ch{grid-area:ch}.c-mi{grid-area:mi}.c-se{grid-area:se}.c-ys{grid-area:ys}
+ .meta{display:block;grid-area:mt;font-size:12px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .st .n::before{content:attr(data-k);font-weight:400;color:var(--mute);margin-right:4px;font-size:11px}
+ .pane{top:auto;height:88vh;width:100%;border-left:0;border-radius:18px 18px 0 0;transform:translateY(105%)}
+ .acts .btn{padding:0 12px;font-size:14px}
+}
+@media(prefers-reduced-motion:reduce){.pane,.toast{transition:none}}
+</style>
+</head>
+<body>
+<header>
+ <div class="top">
+  <h1>群雄データ編集<small id="count"></small></h1>
+  <div class="acts">
+   <button class="btn" id="undo" title="元に戻す (Ctrl+Z)">↶ 戻す</button>
+   <button class="btn" id="redo" title="やり直し (Ctrl+Shift+Z)">↷ やり直し</button>
+   <button class="btn" id="imp">取り込み</button>
+   <button class="btn" id="exp">書き出し</button>
+   <button class="btn pri" id="add">＋ 将を追加</button>
+  </div>
+ </div>
+ <div class="ribbon" id="ribbon"></div>
+</header>
+<main class="wrap">
+ <div class="tools">
+  <input type="search" id="q" placeholder="名前・ユニット・スキル・AI思考で検索" aria-label="検索">
+  <div class="sort"><select id="sk" aria-label="並べ替える項目"></select><button id="sd" aria-label="並び順"></button></div>
+ </div>
+ <div class="chips" id="chips"></div>
+ <p class="sum" id="sum"></p>
+ <div class="list" id="list"></div>
+</main>
+
+<aside class="pane" id="pane" aria-label="将の編集">
+ <div class="ph"><h2 id="pt"></h2><button class="x" id="close" aria-label="閉じる">×</button></div>
+ <div class="pb" id="pb"></div>
+ <div class="pf"><button id="dup">複製</button><button class="del" id="del">削除</button></div>
+</aside>
+
+<div class="mod" id="mexp"><div class="box">
+ <h3>書き出し</h3>
+ <div class="tabs"><button class="on" data-f="tsv">TSV（元の形式）</button><button data-f="json">JSON</button></div>
+ <textarea id="out" readonly aria-label="書き出し結果"></textarea>
+ <div class="bar"><button data-close>閉じる</button><button class="pri" id="copy">コピー</button></div>
+</div></div>
+
+<div class="mod" id="mimp"><div class="box">
+ <h3>取り込み</h3>
+ <p>TSV・CSV・JSONを貼り付けるか、ファイルを選んでください。1行目に「名前」を含む見出し行があれば列の順番は自由です。</p>
+ <textarea id="inp" aria-label="取り込むデータ"></textarea>
+ <div class="bar">
+  <label class="file">ファイルを選ぶ<input type="file" id="file" accept=".txt,.tsv,.csv,.json" hidden></label>
+  <button id="reset">初期データに戻す</button>
+  <button data-close>閉じる</button>
+  <button id="append">末尾に追加</button>
+  <button class="pri" id="replace">置き換える</button>
+ </div>
+</div></div>
+
+<div class="toast" id="toast"><span id="tmsg"></span><button id="tbtn" hidden>元に戻す</button></div>
+
+<script type="text/plain" id="seed">名前	勢力	ユニット	得意	武	智	魅	政	野心(%)	固有スキル	AI思考	成長度
+高坂穂乃果	μ's	Printemps	魅	68	65	94	72	88	突撃	覇権主義	3
+南ことり	μ's	Printemps	魅	42	78	91	82	48		縦横主義	4
+小泉花陽	μ's	Printemps	魅	38	75	88	72	38		防衛主義	5
+園田海未	μ's	lily white	武	88	82	78	76	68	堅守	軍国主義	2
+星空凛	μ's	lily white	武	84	58	82	55	62		覇権主義	4
+東條希	μ's	lily white	魅	48	86	90	84	65	兵法	商業主義	3
+絢瀬絵里	μ's	BiBi	政	72	88	82	90	76	補給術	軍国主義	1
+矢澤にこ	μ's	BiBi	魅	55	70	96	74	90	調略	功名主義	3
+西木野真姫	μ's	BiBi	智	52	91	76	68	72	兵法	商業主義	3
+高海千歌	Aqours	CYaRon!	魅	65	66	93	74	82		覇権主義	3
+渡辺曜	Aqours	CYaRon!	武	91	72	90	66	68	水軍	覇権主義	4
+黒澤ルビィ	Aqours	CYaRon!	魅	32	68	85	62	32		防衛主義	5
+松浦果南	Aqours	AZALEA	武	94	72	84	68	72	水軍	軍国主義	1
+黒澤ダイヤ	Aqours	AZALEA	政	58	88	84	94	75	堅守	防衛主義	2
+国木田花丸	Aqours	AZALEA	魅	35	82	86	72	35		防衛主義	4
+桜内梨子	Aqours	Guilty Kiss	智	38	91	82	78	45		縦横主義	3
+津島善子	Aqours	Guilty Kiss	魅	58	78	91	58	78	調略	功名主義	4
+小原鞠莉	Aqours	Guilty Kiss	魅	55	88	93	90	85		商業主義	3
+上原歩夢	虹ヶ咲	A·ZU·NA	魅	55	72	94	80	62		防衛主義	4
+優木せつ菜	虹ヶ咲	A·ZU·NA	魅	88	78	98	72	92	突撃	覇権主義	4
+桜坂しずく	虹ヶ咲	A·ZU·NA	魅	48	86	88	78	58		縦横主義	3
+朝香果林	虹ヶ咲	DiverDiva	魅	72	75	94	70	78		商業主義	2
+宮下愛	虹ヶ咲	DiverDiva	魅	82	66	96	68	72		覇権主義	4
+中須かすみ	虹ヶ咲	QU4RTZ	魅	52	75	94	66	88		功名主義	4
+近江彼方	虹ヶ咲	QU4RTZ	魅	35	82	90	74	30		防衛主義	3
+エマ・ヴェルデ	虹ヶ咲	QU4RTZ	魅	48	70	96	82	35		防衛主義	3
+天王寺璃奈	虹ヶ咲	QU4RTZ	智	42	96	78	82	68	兵法	商業主義	5
+三船栞子	虹ヶ咲	R3BIRTH	政	52	94	80	96	74		縦横主義	3
+ミア・テイラー	虹ヶ咲	R3BIRTH	智	55	97	86	72	80		商業主義	3
+鐘嵐珠	虹ヶ咲	R3BIRTH	魅	82	82	98	76	95		覇権主義	3
+澁谷かのん	Liella!	Catch You Catch Me	魅	62	78	90	76	82	調略	覇権主義	4
+嵐千砂都	Liella!	Catch You Catch Me	武	88	76	84	72	55		防衛主義	1
+鬼塚夏美	Liella!	Catch You Catch Me	政	55	85	82	88	90		商業主義	4
+唐可可	Liella!	KALEIDOSCORE	魅	48	70	86	55	72	突撃	功名主義	4
+平安名すみれ	Liella!	KALEIDOSCORE	魅	65	72	88	63	88		功名主義	3
+桜小路きな子	Liella!	KALEIDOSCORE	魅	55	63	78	68	48		防衛主義	5
+葉月恋	Liella!	5yncri5e!	政	58	78	75	86	68		縦横主義	2
+米女メイ	Liella!	5yncri5e!	武	82	68	80	60	65		軍国主義	4
+若菜四季	Liella!	5yncri5e!	智	60	90	65	78	62		商業主義	4
+ウィーン・マルガレーテ	Liella!	Liella!新世代	智	72	88	80	58	94		覇権主義	3
+鬼塚冬毬	Liella!	Liella!新世代	智	52	92	62	90	72		軍国主義	3
+乙宗梢	蓮ノ空	スリーズブーケ	政	78	88	88	90	72	堅守	縦横主義	1
+日野下花帆	蓮ノ空	スリーズブーケ	魅	76	68	92	75	75		覇権主義	5
+村野さやか	蓮ノ空	スリーズブーケ	武	86	82	82	78	62		軍国主義	3
+夕霧綴理	蓮ノ空	DOLLCHESTRA	魅	70	80	85	58	40	兵法	防衛主義	3
+百生吟子	蓮ノ空	DOLLCHESTRA	魅	62	82	86	80	58		縦横主義	4
+徒町小鈴	蓮ノ空	DOLLCHESTRA	武	84	60	82	55	45		軍国主義	5
+藤島慈	蓮ノ空	みらくらぱーく！	魅	51	46	74	52	85		功名主義	4
+大沢瑠璃乃	蓮ノ空	みらくらぱーく！	魅	72	75	91	68	68		覇権主義	4
+安養寺姫芽	蓮ノ空	みらくらぱーく！	智	59	85	56	46	78		商業主義	5
+セラス 柳田 リリエンフェルト	蓮ノ空	Edel Note	魅	72	82	84	70	65		覇権主義	3
+桂城泉	蓮ノ空	Edel Note	政	58	80	78	84	60		防衛主義	3
+一之瀬マリカ	青藍高校	青藍1組	魅	52	65	78	62	58		縦横主義	3
+永山みなみ	青藍高校	青藍1組	魅	42	66	75	68	45		防衛主義	4
+杉崎亜矢	青藍高校	青藍1組	魅	68	58	78	55	62		覇権主義	3
+鳥居歩美	青藍高校	青藍2組	魅	48	62	82	70	48		防衛主義	4
+九条聖来	青藍高校	青藍2組	魅	70	82	86	78	75		覇権主義	4
+田中さち子	青藍高校	青藍2組	魅	35	58	72	64	35		防衛主義	3
+篠宮あきる	青藍高校	青藍3組	武	82	68	78	60	72		軍国主義	4
+藤城悠弓	青藍高校	青藍3組	魅	55	76	80	72	60		縦横主義	3
+宮下ココ	東雲学院	東雲1組	魅	62	65	84	62	65		覇権主義	4
+結城紗菜	東雲学院	東雲1組	魅	50	75	80	72	55		縦横主義	3
+クリスティーナ	東雲学院	東雲1組	魅	65	72	84	68	72		覇権主義	4
+御堂優理	東雲学院	東雲2組	魅	55	82	82	78	68		商業主義	3
+神谷理華	東雲学院	東雲2組	智	48	88	78	76	62		商業主義	3
+近江遥	東雲学院	東雲2組	魅	72	70	88	68	75		覇権主義	4
+吉川瑞希	東雲学院	東雲3組	魅	78	70	80	62	65		軍国主義	4
+支倉かさね	東雲学院	東雲3組	魅	55	78	92	72	85		功名主義	4
+逢沢遊宇	千歳橋高校	千歳1組	魅	68	72	82	68	58		覇権主義	4
+西村文絵	千歳橋高校	千歳1組	智	42	82	76	78	45		縦横主義	3
+菊池朱美	千歳橋高校	千歳1組	魅	48	72	80	75	55		商業主義	3
+須田いるか	千歳橋高校	千歳2組	魅	82	65	84	58	72		覇権主義	5
+佐伯麗音	千歳橋高校	千歳2組	魅	75	72	82	65	65		軍国主義	3
+森嶋ななか	千歳橋高校	千歳2組	魅	55	78	86	76	62		商業主義	4
+下園咲	千歳橋高校	千歳3組	魅	42	70	82	74	48		防衛主義	4
+多々良るう	千歳橋高校	千歳3組	魅	65	62	90	58	78		功名主義	5
+白木凪	千歳橋高校	千歳3組	智	50	80	78	74	50		防衛主義	3
+黒崎隼	藤黄学園	藤黄1組	武	82	72	76	62	75		軍国主義	3
+門田剣	藤黄学園	藤黄1組	武	88	65	78	58	78		軍国主義	4
+設楽ふみ	藤黄学園	藤黄1組	魅	45	82	82	80	55		縦横主義	3
+桐原優香	藤黄学園	藤黄2組	魅	62	72	86	70	65		覇権主義	4
+斉木風	藤黄学園	藤黄2組	魅	72	68	80	62	70		覇権主義	3
+紫藤美咲	藤黄学園	藤黄2組	魅	48	80	86	82	68		商業主義	3
+綾小路姫乃	藤黄学園	藤黄3組	魅	55	88	90	80	82		功名主義	4
+白瀬小雪	藤黄学園	藤黄3組	魅	38	75	82	78	42		防衛主義	4
+相川涼	藤黄学園	藤黄3組	魅	65	78	82	72	60		縦横主義	3
+坂巻千鶴子	紫苑女学院	紫苑1組	魅	48	72	80	78	52		防衛主義	3
+志賀仁美	紫苑女学院	紫苑1組	魅	52	82	82	80	60		縦横主義	3
+福原命	紫苑女学院	紫苑1組	武	84	72	82	65	78		軍国主義	4
+鬼崎アキラ	紫苑女学院	紫苑2組	魅	78	75	90	70	85		覇権主義	3
+月島結架	紫苑女学院	紫苑2組	魅	55	78	84	76	65		商業主義	4
+兵藤さゆり	紫苑女学院	紫苑2組	魅	42	75	82	76	48		防衛主義	3
+黒羽咲良	紫苑女学院	紫苑3組	魅	72	76	88	70	75		覇権主義	4
+黒羽咲夜	紫苑女学院	紫苑3組	武	86	72	84	65	82		軍国主義	3
+高天原睦月	紫苑女学院	紫苑3組	魅	58	80	88	76	70		功名主義	4
+蘭花	Y.G.国際学園	Y.G.1組	魅	72	78	86	70	78		覇権主義	3
+ラクシャータ	Y.G.国際学園	Y.G.1組	智	48	85	82	84	68		商業主義	4
+レベッカ	Y.G.国際学園	Y.G.1組	魅	55	78	84	76	62		縦横主義	3
+イザベラ	Y.G.国際学園	Y.G.2組	魅	58	88	90	86	80		商業主義	3
+ジェニファー	Y.G.国際学園	Y.G.2組	魅	65	82	94	76	85		功名主義	4
+マリア	Y.G.国際学園	Y.G.2組	魅	42	78	86	82	55		防衛主義	3
+レオ	Y.G.国際学園	Y.G.3組	武	88	72	84	65	75		軍国主義	4
+早乙女紫	Y.G.国際学園	Y.G.3組	魅	55	86	86	82	70		縦横主義	3
+綺羅ツバサ	乱入勢力	A-RISE	魅	70	70	92	66	90	突撃	覇権主義	1
+優木あんじゅ	乱入勢力	A-RISE	智	56	88	70	56	60	調略	縦横主義	3
+統堂英玲奈	乱入勢力	A-RISE	武	90	62	60	52	50	堅守	軍国主義	2
+鹿角聖良	乱入勢力	SaintSnow	武	88	72	68	56	70	兵法	軍国主義	1
+鹿角理亞	乱入勢力	SaintSnow	智	64	84	56	48	55		功名主義	5</script>
+<script>
+{
+const COLS=[['name','名前'],['fac','勢力'],['unit','ユニット'],['tok','得意'],['bu','武'],['chi','智'],['mi','魅'],['sei','政'],['ys','野心(%)'],['sk','固有スキル'],['ai','AI思考'],['gr','成長度']];
+const NUM=new Set(['bu','chi','mi','sei','ys','gr']);
+const STATS=[['bu','武'],['chi','智'],['mi','魅'],['sei','政']];
+const AIS=['覇権主義','縦横主義','防衛主義','軍国主義','商業主義','功名主義'];
+const SKILLS=['突撃','堅守','兵法','補給術','調略','水軍'];
+const FC={"μ's":'#e4007f','Aqours':'#009ee3','虹ヶ咲':'#f39800','Liella!':'#a5469b','蓮ノ空':'#d4507a','青藍高校':'#3a6bc4','東雲学院':'#e8603f','千歳橋高校':'#22a093','藤黄学園':'#c9a227','紫苑女学院':'#7b4fa8','Y.G.国際学園':'#5c7186','乱入勢力':'#555068'};
+const KEY='gunyu-editor-v1';
+const SORTS=[['','元の順番'],...COLS,['tot','四能力合計'],['mx','最高能力']];
+const TOKO='武智魅政';
+const sv=(r,k)=>k==='tot'?r.bu+r.chi+r.mi+r.sei:k==='mx'?Math.max(r.bu,r.chi,r.mi,r.sei):r[k];
+const isNum=k=>NUM.has(k)||k==='tot'||k==='mx';
+function cmp(a,b,k,d){
+ if(isNum(k))return (sv(a,k)-sv(b,k))*d||a.id-b.id;
+ let x=String(a[k]),y=String(b[k]);
+ if(!x!==!y)return x?-1:1; // 空欄は常に最後
+ let c;
+ if(k==='tok')c=TOKO.indexOf(x)-TOKO.indexOf(y);
+ else if(k==='ai'&&AIS.includes(x)&&AIS.includes(y))c=AIS.indexOf(x)-AIS.indexOf(y);
+ else if(k==='fac'||k==='unit'){const o=[...new Set(rows.map(r=>r[k]))];c=o.indexOf(x)-o.indexOf(y)}
+ else c=x.localeCompare(y,'ja');
+ return c*d||a.id-b.id}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+const color=f=>{if(FC[f])return FC[f];let h=0;for(const c of String(f))h=(h*31+c.charCodeAt(0))%360;return `hsl(${h} 55% 48%)`};
+let uid=1;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function norm(o){const r={id:uid++};for(const [k] of COLS){let v=o[k]??'';if(NUM.has(k)){v=parseInt(v,10);if(isNaN(v))v=k==='gr'?3:0;v=k==='gr'?clamp(v,1,5):clamp(v,0,100)}else v=String(v).trim();r[k]=v}if(!'武智魅政'.includes(r.tok)||!r.tok)r.tok=best(r);return r}
+function best(r){let m=STATS[0];for(const s of STATS)if(r[s[0]]>r[m[0]])m=s;return m[1]}
+function parse(text){
+ text=text.trim();if(!text)return [];
+ if(text[0]==='['||text[0]==='{'){let a=JSON.parse(text);if(!Array.isArray(a))a=[a];return a.map(o=>{const r={};for(const [k,l] of COLS)r[k]=o[k]??o[l]??(l==='野心(%)'?o['野心']:undefined);return norm(r)})}
+ const lines=text.split(/\r?\n/).filter(l=>l.trim());const sep=lines[0].includes('\t')?'\t':',';
+ let order=COLS.map(c=>c[0]);const head=lines[0].split(sep).map(s=>s.trim());
+ if(head.includes('名前')){order=head.map(h=>{const c=COLS.find(c=>c[1]===h||c[1].replace('(%)','')===h);return c?c[0]:null});lines.shift()}
+ return lines.map(l=>{const v=l.split(sep),o={};order.forEach((k,i)=>{if(k)o[k]=v[i]});return norm(o)});
+}
+const toTSV=()=>[COLS.map(c=>c[1]).join('\t'),...rows.map(r=>COLS.map(c=>r[c[0]]).join('\t'))].join('\n');
+const toJSON=()=>'[\n'+rows.map(r=>' '+JSON.stringify(Object.fromEntries(COLS.map(([k,l])=>[l,r[k]])))).join(',\n')+'\n]';
+const seed=()=>parse($('seed').textContent);
+let rows;
+try{const s=localStorage.getItem(KEY);rows=s?JSON.parse(s).map(norm):seed()}catch(e){rows=seed()}
+let undo=[],redo=[],pending=null,sel=null,fac='',q='',sortK=null,sortD=1,fmt='tsv';
+const snap=()=>JSON.stringify(rows);
+function begin(){if(!pending)pending=snap()}
+function end(){if(pending&&pending!==snap()){undo.push(pending);if(undo.length>200)undo.shift();redo=[]}pending=null;save();tools()}
+function commit(fn){begin();fn();end();render()}
+function restore(s){const keep=sel;rows=JSON.parse(s).map(o=>Object.assign(o,{}));uid=Math.max(0,...rows.map(r=>r.id))+1;save();render();if(rows.some(r=>r.id===keep))openPane(keep,true);else closePane()}
+function doUndo(){if(!undo.length)return;redo.push(snap());restore(undo.pop());tools()}
+function doRedo(){if(!redo.length)return;undo.push(snap());restore(redo.pop());tools()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(rows))}catch(e){}}
+function tools(){$('undo').disabled=!undo.length;$('redo').disabled=!redo.length}
+const facs=()=>[...new Set(rows.map(r=>r.fac))];
+function dupNames(){const m={};for(const r of rows)m[r.name]=(m[r.name]||0)+1;return m}
+
+function render(){
+ const fl=facs();
+ if(fac&&!fl.includes(fac))fac='';
+ $('ribbon').innerHTML=fl.map(f=>`<i style="background:${color(f)}"></i>`).join('');
+ $('count').textContent=`${fl.length}勢力・${rows.length}人`;
+ $('chips').innerHTML=`<button class="chip" data-f="" aria-pressed="${!fac}"><b>すべて</b><span>${rows.length}</span></button>`+fl.map(f=>`<button class="chip" data-f="${esc(f)}" style="--c:${color(f)}" aria-pressed="${fac===f}"><i class="dot"></i><b>${esc(f)}</b><span>${rows.filter(r=>r.fac===f).length}</span></button>`).join('');
+ const ql=q.toLowerCase();
+ let v=rows.filter(r=>(!fac||r.fac===fac)&&(!ql||[r.name,r.unit,r.sk,r.ai,r.fac].some(s=>String(s).toLowerCase().includes(ql))));
+ if(sortK)v=[...v].sort((a,b)=>cmp(a,b,sortK,sortD));
+ $('sk').innerHTML=SORTS.map(([k,l])=>`<option value="${k}"${k===(sortK||'')?' selected':''}>${l==='元の順番'?l:l+'で並べ替え'}</option>`).join('');
+ $('sd').disabled=!sortK;$('sd').textContent=!sortK?'—':isNum(sortK)?(sortD<0?'▼ 高い順':'▲ 低い順'):(sortD>0?'▲ 昇順':'▼ 降順');
+ const avg=k=>v.length?Math.round(v.reduce((s,r)=>s+r[k],0)/v.length):0;
+ $('sum').innerHTML=v.length?`表示 <b>${v.length}</b>人　平均　武 <b>${avg('bu')}</b>・智 <b>${avg('chi')}</b>・魅 <b>${avg('mi')}</b>・政 <b>${avg('sei')}</b>・野心 <b>${avg('ys')}</b>%`:'';
+ const dn=dupNames();
+ const cls={name:'c-nm',fac:'c-fac',unit:'c-unit',tok:'c-tk',bu:'c-bu',chi:'c-ch',mi:'c-mi',sei:'c-se',ys:'c-ys',sk:'c-sk',ai:'c-ai',gr:'c-gr'};
+ const head=`<div class="row h">${COLS.map(([k,l])=>`<button class="${cls[k]}${sortK===k?' on':''}" data-s="${k}">${l}${sortK===k?(sortD>0?' ▲':' ▼'):''}</button>`).join('')}</div>`;
+ const st=(r,k,l)=>`<div class="st ${cls[k]}${r[k]>=90?' hi':''}"><span class="n" data-k="${l}">${r[k]}</span><i><u style="width:${r[k]}%"></u></i></div>`;
+ const body=v.map(r=>`<div class="row d${sel===r.id?' sel':''}" role="button" tabindex="0" data-id="${r.id}" style="--c:${color(r.fac)}">
+  <div class="nm c-nm">${esc(r.name)||'（名前なし）'}${dn[r.name]>1?'<em title="同名がいます">⚠</em>':''}</div>
+  <div class="tx c-fac">${esc(r.fac)}</div><div class="tx c-unit">${esc(r.unit)}</div>
+  <div class="c-tk"><span class="tk">${esc(r.tok)}</span></div>
+  ${STATS.map(([k,l])=>st(r,k,l)).join('')}${st(r,'ys','野')}
+  <div class="tx c-sk">${esc(r.sk)||'—'}</div><div class="tx c-ai">${esc(r.ai)}</div>
+  <div class="gr c-gr" title="成長度 ${r.gr}">${'●'.repeat(r.gr)}${'○'.repeat(5-r.gr)}</div>
+  <div class="meta">${esc([r.fac,r.unit,r.sk,r.ai].filter(Boolean).join(' · '))}</div></div>`).join('');
+ $('list').innerHTML=head+(body||'<div class="empty">該当する将がいません</div>');
+}
+
+function opts(list,cur){const a=[...new Set([...list,cur].filter(x=>x!==''))];return a.map(x=>`<option${x===cur?' selected':''}>${esc(x)}</option>`).join('')}
+function openPane(id,keepScroll){
+ const r=rows.find(r=>r.id===id);if(!r)return;sel=id;
+ const pb=$('pb'),top=pb.scrollTop;
+ $('pane').style.setProperty('--c',color(r.fac));$('pt').textContent=r.name||'（名前なし）';
+
+ pb.innerHTML=`<div id="hints"></div>
+ <label class="f"><span>名前</span><input data-k="name" value="${esc(r.name)}"></label>
+ <div class="two"><label class="f"><span>勢力</span><input data-k="fac" list="dlf" value="${esc(r.fac)}"></label>
+ <label class="f"><span>ユニット</span><input data-k="unit" list="dlu" value="${esc(r.unit)}"></label></div>
+ <datalist id="dlf">${facs().map(f=>`<option value="${esc(f)}">`).join('')}</datalist>
+ <datalist id="dlu"></datalist>
+ <div class="f"><span>得意</span><div class="seg">${STATS.map(s=>`<button data-tok="${s[1]}" class="${r.tok===s[1]?'on':''}">${s[1]}</button>`).join('')}</div></div>
+ <div class="f"><span>能力</span></div>
+ ${[...STATS,['ys','野心']].map(([k,l])=>`<div class="sl"><b>${l}</b><input type="range" min="0" max="100" data-k="${k}" value="${r[k]}" aria-label="${l}"><input type="number" min="0" max="100" data-k="${k}" value="${r[k]}" aria-label="${l}の数値"></div>`).join('')}
+ <div class="tot" id="tot"></div>
+ <div class="two"><label class="f"><span>固有スキル</span><select data-k="sk"><option value="">なし</option>${opts([...SKILLS,...rows.map(x=>x.sk)],r.sk)}</select></label>
+ <label class="f"><span>AI思考</span><select data-k="ai">${opts([...AIS,...rows.map(x=>x.ai)],r.ai)}</select></label></div>
+ <label class="f"><span>固有スキルを新しく作る（入力すると上書き）</span><input data-k="sk" placeholder="例：鼓舞" value=""></label>
+ <div class="f"><span>成長度</span><div class="seg">${[1,2,3,4,5].map(n=>`<button data-gr="${n}" class="${r.gr===n?'on':''}">${n}</button>`).join('')}</div></div>`;
+ refresh();
+ $('pane').classList.add('open');
+ if(keepScroll)pb.scrollTop=top;
+ document.querySelectorAll('.row.d').forEach(e=>e.classList.toggle('sel',+e.dataset.id===id));
+}
+function refresh(){
+ const r=cur();if(!r)return;
+ $('pane').style.setProperty('--c',color(r.fac));$('pt').textContent=r.name||'（名前なし）';
+ const dn=dupNames(),b=best(r),t=r.bu+r.chi+r.mi+r.sei,v=s=>r[STATS.find(x=>x[1]===s)[0]];
+ let h='';
+ if(!r.name.trim())h+=`<div class="hint">名前が空です</div>`;
+ else if(dn[r.name]>1)h+=`<div class="hint">同じ名前の将が${dn[r.name]}人います</div>`;
+ if(v(r.tok)<v(b))h+=`<div class="hint"><span>最高値は「${b}」です</span><button data-fix>得意を${b}にする</button></div>`;
+ $('hints').innerHTML=h;
+ $('dlu').innerHTML=[...new Set(rows.filter(x=>x.fac===r.fac).map(x=>x.unit))].map(u=>`<option value="${esc(u)}">`).join('');
+ $('tot').textContent=`四能力合計 ${t}　平均 ${(t/4).toFixed(1)}`;
+ document.querySelectorAll('#pb [data-tok]').forEach(x=>x.classList.toggle('on',x.dataset.tok===r.tok));
+ document.querySelectorAll('#pb [data-gr]').forEach(x=>x.classList.toggle('on',+x.dataset.gr===r.gr));
+ for(const k of NUM)document.querySelectorAll(`#pb input[data-k="${k}"]`).forEach(i=>{if(i!==document.activeElement)i.value=r[k]});
+}
+function closePane(){$('pane').classList.remove('open');sel=null;document.querySelectorAll('.row.d.sel').forEach(e=>e.classList.remove('sel'))}
+const cur=()=>rows.find(r=>r.id===sel);
+function setVal(k,raw){const r=cur();if(!r)return;let v=raw;if(NUM.has(k)){v=parseInt(raw,10);if(isNaN(v))return;v=k==='gr'?clamp(v,1,5):clamp(v,0,100)}else v=String(v).trim();r[k]=v}
+
+$('pb').addEventListener('input',e=>{const k=e.target.dataset.k;if(!k)return;begin();setVal(k,e.target.value);
+ if(NUM.has(k))document.querySelectorAll(`#pb [data-k="${k}"]`).forEach(i=>{if(i!==e.target)i.value=cur()[k]});
+ refresh();render()});
+$('pb').addEventListener('change',e=>{const k=e.target.dataset.k;if(!k)return;if(k==='sk'&&e.target.tagName==='INPUT'&&!e.target.value.trim()){end();return}begin();setVal(k,e.target.value);end();render();if(e.target.tagName==='INPUT'&&e.target.type!=='range'&&e.target.type!=='number'||NUM.has(k))e.target.value=cur()[k];refresh();if(k==='sk')openPane(sel,true)});
+$('pb').addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;const r=cur();
+ if(t.dataset.tok)commit(()=>r.tok=t.dataset.tok);
+ else if(t.dataset.gr)commit(()=>r.gr=+t.dataset.gr);
+ else if(t.hasAttribute('data-fix'))commit(()=>r.tok=best(r));
+ else return;refresh()});
+$('list').addEventListener('click',e=>{const s=e.target.closest('[data-s]');if(s){const k=s.dataset.s,f=isNum(k)?-1:1;if(sortK===k){if(sortD===f)sortD=-f;else sortK=null}else{sortK=k;sortD=f}render();return}
+ const d=e.target.closest('.row.d');if(d)openPane(+d.dataset.id)});
+$('list').addEventListener('keydown',e=>{if(e.key==='Enter'){const d=e.target.closest('.row.d');if(d)openPane(+d.dataset.id)}});
+$('chips').addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c)return;fac=c.dataset.f;render()});
+$('sk').onchange=e=>{sortK=e.target.value||null;sortD=isNum(sortK)?-1:1;render()};
+$('sd').onclick=()=>{sortD=-sortD;render()};
+$('q').addEventListener('input',e=>{q=e.target.value;render()});
+$('close').onclick=closePane;
+$('add').onclick=()=>{const f=fac||(rows[0]?.fac??'新勢力');const r=norm({name:'新しい将',fac:f,unit:'',tok:'魅',bu:50,chi:50,mi:50,sei:50,ys:50,sk:'',ai:'防衛主義',gr:3});commit(()=>rows.push(r));openPane(r.id);toast('将を追加しました')};
+$('dup').onclick=()=>{const r=cur();if(!r)return;const c=norm({...r,name:r.name+'（複製）'});commit(()=>rows.splice(rows.indexOf(r)+1,0,c));openPane(c.id);toast('複製しました')};
+$('del').onclick=()=>{const r=cur();if(!r)return;commit(()=>rows.splice(rows.indexOf(r),1));closePane();toast(`「${r.name}」を削除しました`,true)};
+$('undo').onclick=doUndo;$('redo').onclick=doRedo;
+let tt;function toast(m,u){$('tmsg').textContent=m;$('tbtn').hidden=!u;$('toast').classList.add('on');clearTimeout(tt);tt=setTimeout(()=>$('toast').classList.remove('on'),u?5000:2200)}
+$('tbtn').onclick=()=>{doUndo();$('toast').classList.remove('on')};
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){document.querySelectorAll('.mod.open').length?document.querySelectorAll('.mod').forEach(m=>m.classList.remove('open')):closePane();return}
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){e.preventDefault();e.shiftKey?doRedo():doUndo()}});
+// 書き出し
+const showOut=()=>{$('out').value=fmt==='tsv'?toTSV():toJSON();document.querySelectorAll('#mexp .tabs button').forEach(b=>b.classList.toggle('on',b.dataset.f===fmt))};
+$('exp').onclick=()=>{showOut();$('mexp').classList.add('open')};
+document.querySelector('#mexp .tabs').onclick=e=>{const b=e.target.closest('button');if(b){fmt=b.dataset.f;showOut()}};
+$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('out').value);toast('コピーしました')}catch(e){$('out').select();toast('選択しました。長押しまたはCtrl+Cでコピーしてください')}};
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('.mod').classList.remove('open'));
+document.querySelectorAll('.mod').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+// 取り込み
+$('imp').onclick=()=>{$('inp').value='';$('mimp').classList.add('open')};
+$('file').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>$('inp').value=t);e.target.value=''};
+function load(mode){let a;try{a=parse($('inp').value)}catch(e){toast('読み込めませんでした。形式を確認してください');return}
+ if(!a.length){toast('取り込むデータがありません');return}
+ commit(()=>{rows=mode==='rep'?a:rows.concat(a)});closePane();$('mimp').classList.remove('open');toast(`${a.length}人を${mode==='rep'?'読み込みました':'追加しました'}`,true)}
+$('replace').onclick=()=>load('rep');$('append').onclick=()=>load('add');
+$('reset').onclick=()=>{commit(()=>{rows=seed()});closePane();$('mimp').classList.remove('open');toast('初期データに戻しました',true)};
+uid=Math.max(0,...rows.map(r=>r.id))+1;
+render();tools();
+}
+</script>
+</body>
+</html>
